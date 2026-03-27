@@ -155,9 +155,9 @@ For advanced desktop/container tuning options, see the [`docker-baseimage-gui` e
 
 | Path | Description | Required |
 | --- | --- | --- |
-| `/app` | Cached JAR downloads and extracted native libraries. | No |
-| `/vmedia` | Optional ISO repository for automounting virtual media. | No |
-| `/screenshots` | Screenshot directory exposed by the base GUI image. | No |
+| `/app` | Cached JAR downloads and extracted native libraries. | Yes |
+| `/vmedia` | Optional ISO repository for automounting virtual media. | Yes |
+| `/screenshots` | Screenshot directory exposed by the base GUI image. | Yes |
 
 ## Repository layout
 
