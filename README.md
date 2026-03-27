@@ -13,15 +13,15 @@ The container follows the same pattern as the iDRAC6 project:
 For the setup we validated here, the simplest working launch path is direct `IDRAC_USER` / `IDRAC_PASSWORD` mode with the certificate JNI compatibility shim enabled:
 
 ```powershell
-docker run -d `
-  --name idrac7 `
-  -p 5800:5800 `
-  -e IDRAC_HOST=192.168.0.17 `
-  -e IDRAC_PORT=443 `
-  -e IDRAC_USER=root `
-  -e IDRAC_PASSWORD=changeme `
-  -e IDRAC_BYPASS_CERT_JNI=true `
-  -v ${PWD}/data/app:/app `
+docker run -d \
+  --name idrac7 \
+  -p 5800:5800 \
+  -e IDRAC_HOST=192.168.0.17 \
+  -e IDRAC_PORT=443 \
+  -e IDRAC_USER=root \
+  -e IDRAC_PASSWORD=changeme \
+  -e IDRAC_BYPASS_CERT_JNI=true \
+  -v ${PWD}/data/app:/app \
   docker-idrac7
 ```
 
@@ -36,14 +36,14 @@ If your appliance insists on tokenized session credentials, you can still mount 
 Example:
 
 ```powershell
-docker run -d `
-  --name idrac7 `
-  -p 5800:5800 `
-  -e IDRAC_HOST=192.168.0.17 `
-  -e IDRAC_PORT=443 `
-  -e IDRAC_JNLP_FILE=/jnlp/viewer.jnlp `
-  -v D:\POBRANE:/jnlp:ro `
-  -v ${PWD}/data/app:/app `
+docker run -d \
+  --name idrac7 \
+  -p 5800:5800 \
+  -e IDRAC_HOST=192.168.0.17 \
+  -e IDRAC_PORT=443 \
+  -e IDRAC_JNLP_FILE=/jnlp/viewer.jnlp \
+  -v D:\DOWNLOADS:/jnlp:ro \
+  -v ${PWD}/data/app:/app \
   docker-idrac7
 ```
 
@@ -52,16 +52,16 @@ When `IDRAC_JNLP_FILE` is set, the container will use the tokenized launch argum
 If your iDRAC7 virtual console is on the default remote-presence port instead of the JNLP port, you can still run with the token values from the JNLP and override the KVM ports explicitly:
 
 ```powershell
-docker run -d `
-  --name idrac7 `
-  -p 5800:5800 `
-  -e IDRAC_HOST=192.168.0.17 `
-  -e IDRAC_KMPORT=5900 `
-  -e IDRAC_VPORT=5900 `
-  -e IDRAC_USER=11@@... `
-  -e IDRAC_PASSWORD=... `
-  -e IDRAC_BYPASS_CERT_JNI=true `
-  -v ${PWD}/data/app:/app `
+docker run -d \
+  --name idrac7 \
+  -p 5800:5800 \
+  -e IDRAC_HOST=192.168.0.17 \
+  -e IDRAC_KMPORT=5900 \
+  -e IDRAC_VPORT=5900 \
+  -e IDRAC_USER=11@@... \
+  -e IDRAC_PASSWORD=... \
+  -e IDRAC_BYPASS_CERT_JNI=true \
+  -v ${PWD}/data/app:/app \
   docker-idrac7
 ```
 
@@ -90,13 +90,13 @@ docker build -t docker-idrac7 .
 Run it:
 
 ```powershell
-docker run -d `
-  -p 5800:5800 `
-  -p 5900:5900 `
-  -e IDRAC_HOST=idrac7.example.org `
-  -e IDRAC_USER=root `
-  -e IDRAC_PASSWORD=changeme `
-  -v ${PWD}/data/app:/app `
+docker run -d \
+  -p 5800:5800 \
+  -p 5900:5900 \
+  -e IDRAC_HOST=idrac7.example.org \
+  -e IDRAC_USER=root \
+  -e IDRAC_PASSWORD=changeme \
+  -v ${PWD}/data/app:/app \
   docker-idrac7
 ```
 
@@ -111,16 +111,16 @@ If the `/app` bind mount is missing, read-only, or backed by a VM/shared-folder 
 Put ISO files in the `/vmedia` bind mount and set `VIRTUAL_MEDIA` to the filename you want mapped after the KVM window appears:
 
 ```powershell
-docker run -d `
-  --name idrac7 `
-  -p 5800:5800 `
-  -e IDRAC_HOST=192.168.0.17 `
-  -e IDRAC_USER=root `
-  -e IDRAC_PASSWORD=changeme `
-  -e IDRAC_BYPASS_CERT_JNI=true `
-  -e VIRTUAL_MEDIA=installer.iso `
-  -v ${PWD}/data/app:/app `
-  -v ${PWD}/data/vmedia:/vmedia `
+docker run -d \
+  --name idrac7 \
+  -p 5800:5800 \
+  -e IDRAC_HOST=192.168.0.17 \
+  -e IDRAC_USER=root \
+  -e IDRAC_PASSWORD=changeme \
+  -e IDRAC_BYPASS_CERT_JNI=true \
+  -e VIRTUAL_MEDIA=installer.iso \
+  -v ${PWD}/data/app:/app \
+  -v ${PWD}/data/vmedia:/vmedia \
   docker-idrac7
 ```
 
