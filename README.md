@@ -42,7 +42,7 @@ docker run -d `
   -e IDRAC_HOST=192.168.0.17 `
   -e IDRAC_PORT=443 `
   -e IDRAC_JNLP_FILE=/jnlp/viewer.jnlp `
-  -v D:\DOWNLOADS:/jnlp:ro `
+  -v D:\POBRANE:/jnlp:ro `
   -v ${PWD}/data/app:/app `
   docker-idrac7
 ```
@@ -104,6 +104,8 @@ The web interface will be available on port `5800` and the VNC server on `5900`.
 
 Run only one active iDRAC console container against the same appliance at a time. Multiple live containers can confuse the session state and break login or reconnect behavior.
 
+If the `/app` bind mount is missing, read-only, or backed by a VM/shared-folder filesystem that doesn't allow writes from the container user, the startup script now falls back automatically to `/tmp/idrac-app`. The console will still work, but the downloaded JAR cache will be ephemeral unless you point `IDRAC_CACHE_DIR` at a writable persistent location.
+
 ## Virtual media
 
 Put ISO files in the `/vmedia` bind mount and set `VIRTUAL_MEDIA` to the filename you want mapped after the KVM window appears:
@@ -135,6 +137,7 @@ An example compose file is available in [`docker-compose.yml`](./docker-compose.
 | `IDRAC_PASSWORD` | iDRAC password. Required only when `IDRAC_JNLP_FILE` is not provided. | Conditionally |
 | `IDRAC_JNLP_FILE` | Absolute path to a downloaded `viewer.jnlp` mounted into the container. Recommended for iDRAC7. | No |
 | `IDRAC_PORT` | HTTPS port for the iDRAC web UI. Defaults to `443`. | No |
+| `IDRAC_CACHE_DIR` | Writable directory used for downloaded JARs, extracted native libraries, and Java prefs. Defaults to `/app`, with automatic fallback to `/tmp/idrac-app` when `/app` is not writable. | No |
 | `IDRAC_KMPORT` | KVM port passed to the Java launcher. Defaults to `5900`. | No |
 | `IDRAC_VPORT` | Virtual media port passed to the Java launcher. Defaults to `5900`. | No |
 | `IDRAC_BYPASS_CERT_JNI` | Rebuilds the cached `avctKVM.jar` in `/app` with a pure-Java certificate compatibility shim. Use only when Dell's native certificate JNI fails. | No |
@@ -155,9 +158,9 @@ For advanced desktop/container tuning options, see the [`docker-baseimage-gui` e
 
 | Path | Description | Required |
 | --- | --- | --- |
-| `/app` | Cached JAR downloads and extracted native libraries. | Yes |
-| `/vmedia` | Optional ISO repository for automounting virtual media. | Yes |
-| `/screenshots` | Screenshot directory exposed by the base GUI image. | Yes |
+| `/app` | Cached JAR downloads and extracted native libraries. | No |
+| `/vmedia` | Optional ISO repository for automounting virtual media. | No |
+| `/screenshots` | Screenshot directory exposed by the base GUI image. | No |
 
 ## Repository layout
 

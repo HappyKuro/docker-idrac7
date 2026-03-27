@@ -104,6 +104,38 @@ download_absolute_if_missing() {
     die 2 "Failed to download ${absolute_url}."
 }
 
+ensure_writable_dir() {
+    dir="$1"
+
+    if ! mkdir -p "$dir" 2>/dev/null; then
+        return 1
+    fi
+
+    probe_file="$(mktemp "${dir}/.write-test.XXXXXX" 2>/dev/null)" || return 1
+    rm -f "$probe_file"
+    return 0
+}
+
+initialize_workdir() {
+    APP_WORKDIR="${IDRAC_CACHE_DIR}"
+    APP_LIBDIR="${APP_WORKDIR}/lib"
+    APP_PREFS_USER_ROOT="${APP_WORKDIR}/.java-prefs/user"
+    APP_PREFS_SYSTEM_ROOT="${APP_WORKDIR}/.java-prefs/system"
+    fallback_dir="/tmp/idrac-app"
+
+    if ! ensure_writable_dir "${APP_WORKDIR}"; then
+        info "Cache directory ${APP_WORKDIR} is not writable, falling back to ${fallback_dir}"
+        APP_WORKDIR="${fallback_dir}"
+        APP_LIBDIR="${APP_WORKDIR}/lib"
+        APP_PREFS_USER_ROOT="${APP_WORKDIR}/.java-prefs/user"
+        APP_PREFS_SYSTEM_ROOT="${APP_WORKDIR}/.java-prefs/system"
+        ensure_writable_dir "${APP_WORKDIR}" || die 1 "Failed to prepare a writable cache directory."
+    fi
+
+    mkdir -p "${APP_LIBDIR}" "${APP_PREFS_USER_ROOT}" "${APP_PREFS_SYSTEM_ROOT}"
+    info "Using cache directory ${APP_WORKDIR}"
+}
+
 extract_native_libs() {
     archive="$1"
     expected_path="$2"
@@ -131,21 +163,21 @@ patch_certificate_jni_if_needed() {
 
     override_dir="$(mktemp -d)"
     patch_dir="$(mktemp -d)"
-    patched_jar="$(mktemp /app/avctKVM.jar.patched.XXXXXX)"
+    patched_jar="$(mktemp "${APP_WORKDIR}/avctKVM.jar.patched.XXXXXX")"
 
     cleanup_patch_dirs() {
         rm -rf "$override_dir" "$patch_dir"
         rm -f "$patched_jar"
     }
 
-    if ! javac -cp /app/avctKVM.jar -d "$override_dir" /opt/idrac-wrapper-src/com/avocent/app/security/X509CertificateJNI.java; then
+    if ! javac -cp "${APP_WORKDIR}/avctKVM.jar" -d "$override_dir" /opt/idrac-wrapper-src/com/avocent/app/security/X509CertificateJNI.java; then
         cleanup_patch_dirs
         die 4 "Failed to compile the certificate JNI wrapper override."
     fi
 
     (
         cd "$patch_dir" && \
-        jar xf /app/avctKVM.jar && \
+        jar xf "${APP_WORKDIR}/avctKVM.jar" && \
         rm -f META-INF/*.SF META-INF/*.RSA META-INF/*.DSA && \
         mkdir -p com/avocent/app/security && \
         cp "${override_dir}/com/avocent/app/security/X509CertificateJNI.class" com/avocent/app/security/X509CertificateJNI.class && \
@@ -155,7 +187,7 @@ patch_certificate_jni_if_needed() {
         die 4 "Failed to patch avctKVM.jar with the certificate JNI override."
     }
 
-    mv "$patched_jar" /app/avctKVM.jar
+    mv "$patched_jar" "${APP_WORKDIR}/avctKVM.jar"
     rm -rf "$override_dir" "$patch_dir"
 }
 
@@ -243,34 +275,34 @@ prepare_launch_parameters() {
 
 download_console_artifacts() {
     if [ -n "${KVM_JAR_URL}" ]; then
-        download_absolute_if_missing avctKVM.jar "${KVM_JAR_URL}"
+        download_absolute_if_missing "${APP_WORKDIR}/avctKVM.jar" "${KVM_JAR_URL}"
     else
-        download_appliance_file_if_missing avctKVM.jar avctKVM.jar
+        download_appliance_file_if_missing "${APP_WORKDIR}/avctKVM.jar" avctKVM.jar
     fi
 
     if [ -n "${KVM_NATIVE_URL}" ]; then
-        download_absolute_if_missing lib/avctKVMIOLinux64.jar "${KVM_NATIVE_URL}"
+        download_absolute_if_missing "${APP_LIBDIR}/avctKVMIOLinux64.jar" "${KVM_NATIVE_URL}"
     else
-        download_appliance_file_if_missing lib/avctKVMIOLinux64.jar avctKVMIOLinux64.jar
+        download_appliance_file_if_missing "${APP_LIBDIR}/avctKVMIOLinux64.jar" avctKVMIOLinux64.jar
     fi
 
     if [ -n "${VM_NATIVE_URL}" ]; then
-        download_absolute_if_missing lib/avctVMAPI_DLLLinux64.jar "${VM_NATIVE_URL}"
+        download_absolute_if_missing "${APP_LIBDIR}/avctVMAPI_DLLLinux64.jar" "${VM_NATIVE_URL}"
         return 0
     fi
 
     if [ -n "${IDRAC_JNLP_FILE:-}" ]; then
-        download_appliance_file_if_missing lib/avctVMAPI_DLLLinux64.jar avctVMAPI_DLLLinux64.jar
+        download_appliance_file_if_missing "${APP_LIBDIR}/avctVMAPI_DLLLinux64.jar" avctVMAPI_DLLLinux64.jar
         return 0
     fi
 
-    if ! try_download_appliance_file_if_missing lib/avctVMAPI_DLLLinux64.jar avctVMAPI_DLLLinux64.jar; then
-        download_appliance_file_if_missing lib/avctVMLinux64.jar avctVMLinux64.jar
+    if ! try_download_appliance_file_if_missing "${APP_LIBDIR}/avctVMAPI_DLLLinux64.jar" avctVMAPI_DLLLinux64.jar; then
+        download_appliance_file_if_missing "${APP_LIBDIR}/avctVMLinux64.jar" avctVMLinux64.jar
     fi
 }
 
 extract_console_artifacts() {
-    cd /app/lib
+    cd "${APP_LIBDIR}"
     extract_native_libs avctKVMIOLinux64.jar libavctKVMIO.so
 
     # Prefer the newer iDRAC7 VMAPI bundle when it exists, but keep the
@@ -281,7 +313,7 @@ extract_console_artifacts() {
         extract_native_libs avctVMLinux64.jar libavmLinux64.so
     fi
 
-    cd /app
+    cd "${APP_WORKDIR}"
 }
 
 enable_keycode_hack_if_needed() {
@@ -301,8 +333,7 @@ start_virtual_media_if_requested() {
 }
 
 start_java_mode() {
-    cd /app
-    mkdir -p lib
+    cd "${APP_WORKDIR}"
 
     prepare_launch_parameters
     download_console_artifacts
@@ -321,9 +352,11 @@ start_java_mode() {
 
     set -- "$@" \
         -Djava.security.properties=/etc/java.security.override \
+        -Djava.util.prefs.userRoot="${APP_PREFS_USER_ROOT}" \
+        -Djava.util.prefs.systemRoot="${APP_PREFS_SYSTEM_ROOT}" \
         -Didrac.main.class="${IDRAC_MAIN_CLASS}" \
-        -cp "/opt/idrac-wrapper:avctKVM.jar" \
-        -Djava.library.path=./lib \
+        -cp "/opt/idrac-wrapper:${APP_WORKDIR}/avctKVM.jar" \
+        -Djava.library.path="${APP_LIBDIR}" \
         IdracLauncher \
         "ip=${IDRAC_HOST}" \
         "kmport=${JAVA_IDRAC_KMPORT}" \
@@ -364,6 +397,7 @@ load_configuration() {
 
     : "${IDRAC_PORT:=443}"
     : "${IDRAC_MODE:=java}"
+    : "${IDRAC_CACHE_DIR:=/app}"
     : "${IDRAC_KMPORT:=5900}"
     : "${IDRAC_VPORT:=5900}"
     : "${IDRAC_DOWNLOAD_BASE:=/software}"
@@ -373,6 +407,7 @@ load_configuration() {
     : "${IDRAC_VNC_SECURITY_TYPES:=TLSVnc,VncAuth,TLSNone,None}"
     : "${IDRAC_VNC_GNUTLS_PRIORITY:=NORMAL}"
 
+    initialize_workdir
     require_env IDRAC_HOST
 
     case "${IDRAC_MODE}" in
