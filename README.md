@@ -1,6 +1,6 @@
 # docker-idrac7
 
-This repository now includes a Dockerized iDRAC7 console image modeled after [`DomiStyle/docker-idrac6`](https://github.com/DomiStyle/docker-idrac6), plus the original Windows helper app under [`IdracVirtualConsoleViewer.App`](./IdracVirtualConsoleViewer.App).
+This repository contains a Dockerized iDRAC7 console image modeled after [`DomiStyle/docker-idrac6`](https://github.com/DomiStyle/docker-idrac6).
 
 The container follows the same pattern as the iDRAC6 project:
 
@@ -164,15 +164,3 @@ For advanced desktop/container tuning options, see the [`docker-baseimage-gui` e
 - [`Dockerfile`](./Dockerfile): Docker image definition for the Java/VNC container.
 - [`startapp.sh`](./startapp.sh): Downloads the iDRAC7 Java console artifacts and launches the KVM.
 - [`mountiso.sh`](./mountiso.sh): Optional legacy UI automation for virtual media insertion.
-- [`IdracVirtualConsoleViewer.App`](./IdracVirtualConsoleViewer.App): Existing WinForms helper app that opens the documented iDRAC7 web console.
-
-## Building the desktop helper
-
-If you still want the Windows helper app, build it with:
-
-```powershell
-$env:DOTNET_CLI_HOME="$PWD\\.dotnet"
-$env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE="1"
-dotnet restore .\IdracVirtualConsoleViewer.App\IdracVirtualConsoleViewer.App.csproj
-dotnet build .\IdracVirtualConsoleViewer.App\IdracVirtualConsoleViewer.App.csproj --no-restore
-```
