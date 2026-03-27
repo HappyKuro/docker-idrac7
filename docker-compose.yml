@@ -1,0 +1,52 @@
+services:
+  idrac7:
+    build:
+      context: .
+    restart: unless-stopped
+    ports:
+      - "5800:5800"
+      - "5900:5900"
+    environment:
+      IDRAC_HOST: idrac7.example.org
+      IDRAC_PORT: 443
+      IDRAC_USER: root
+      IDRAC_PASSWORD: changeme
+      IDRAC_BYPASS_CERT_JNI: "true"
+      # Optional:
+      # IDRAC_JNLP_FILE: /jnlp/viewer.jnlp
+      # IDRAC_KEYCODE_HACK: "true"
+      # VIRTUAL_MEDIA: installer.iso
+      # VIRTUAL_MEDIA_START_DELAY: 15
+    volumes:
+      - ./data/app:/app
+      - ./data/vmedia:/vmedia
+      - ./data/screenshots:/screenshots
+      # - /path/to/jnlp:/jnlp:ro
+
+  idrac7-secret:
+    build:
+      context: .
+    restart: unless-stopped
+    ports:
+      - "5801:5800"
+      - "5901:5900"
+    secrets:
+      - idrac_host
+      - idrac_user
+      - idrac_password
+      # - idrac_jnlp_file
+    volumes:
+      - ./data/app-secret:/app
+      - ./data/vmedia:/vmedia
+      - ./data/screenshots-secret:/screenshots
+      # - /path/to/jnlp:/jnlp:ro
+
+secrets:
+  idrac_host:
+    file: ./secrets/idrac_host.txt
+  idrac_user:
+    file: ./secrets/idrac_user.txt
+  idrac_password:
+    file: ./secrets/idrac_password.txt
+  # idrac_jnlp_file:
+  #   file: ./secrets/idrac_jnlp_file.txt

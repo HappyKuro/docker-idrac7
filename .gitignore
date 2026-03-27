@@ -1,0 +1,7 @@
+# Runtime caches and downloaded appliance artifacts
+/data/app/*
+!/data/app/.gitkeep
+/data/screenshots/*
+!/data/screenshots/.gitkeep
+/data/vmedia/*
+!/data/vmedia/.gitkeep

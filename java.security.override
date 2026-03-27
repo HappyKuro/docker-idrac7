@@ -1,0 +1,13 @@
+# Restore EC crypto support for iDRAC7's modern TLS profile while keeping
+# algorithm constraints relaxed enough for old Dell certs and signed JARs.
+security.provider.1=sun.security.provider.Sun
+security.provider.2=sun.security.rsa.SunRsaSign
+security.provider.3=sun.security.ssl.SunJSSE
+security.provider.4=com.sun.crypto.provider.SunJCE
+security.provider.5=sun.security.jgss.SunProvider
+security.provider.6=com.sun.security.sasl.Provider
+security.provider.7=sun.security.ec.SunEC
+
+jdk.certpath.disabledAlgorithms=MD2, MD5, RSA keySize < 512
+jdk.jar.disabledAlgorithms=MD2, MD5, RSA keySize < 512
+jdk.tls.disabledAlgorithms=SSLv3, RC4, DES, MD5withRSA, DH keySize < 1024, EC keySize < 224
