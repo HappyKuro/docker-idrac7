@@ -42,7 +42,7 @@ docker run -d `
   -e IDRAC_HOST=192.168.0.17 `
   -e IDRAC_PORT=443 `
   -e IDRAC_JNLP_FILE=/jnlp/viewer.jnlp `
-  -v D:\POBRANE:/jnlp:ro `
+  -v D:\DOWNLOADS:/jnlp:ro `
   -v ${PWD}/data/app:/app `
   docker-idrac7
 ```
