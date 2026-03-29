@@ -17,6 +17,14 @@ die() {
     exit "$code"
 }
 
+list_virtual_media_files() {
+    if [ ! -d /vmedia ]; then
+        return 0
+    fi
+
+    find /vmedia -type f \( -iname '*.iso' -o -iname '*.img' -o -iname '*.ima' \) -printf '%P\n' 2>/dev/null | sort
+}
+
 read_secret() {
     key="$1"
     path="/run/secrets/$2"
@@ -332,6 +340,41 @@ start_virtual_media_if_requested() {
     fi
 }
 
+start_virtual_media_gui_if_requested() {
+    java_pid="$1"
+
+    case "${VIRTUAL_MEDIA_GUI}" in
+        auto)
+            if [ -z "$(list_virtual_media_files | head -n 1)" ]; then
+                return 0
+            fi
+            /virtual-media-ui.sh "$java_pid" &
+            ;;
+        true|1|yes|picker)
+            /virtual-media-ui.sh "$java_pid" &
+            ;;
+        false|0|no)
+            return 0
+            ;;
+        *)
+            die 1 "Unsupported VIRTUAL_MEDIA_GUI value: ${VIRTUAL_MEDIA_GUI}"
+            ;;
+    esac
+}
+
+start_virtual_media_api() {
+    java_pid="$1"
+    python3 /virtual-media-api.py "$java_pid" &
+    VIRTUAL_MEDIA_API_PID="$!"
+}
+
+stop_virtual_media_api() {
+    if [ -n "${VIRTUAL_MEDIA_API_PID:-}" ]; then
+        kill "${VIRTUAL_MEDIA_API_PID}" 2>/dev/null || true
+        wait "${VIRTUAL_MEDIA_API_PID}" 2>/dev/null || true
+    fi
+}
+
 start_java_mode() {
     cd "${APP_WORKDIR}"
 
@@ -381,8 +424,13 @@ start_java_mode() {
     "$@" &
     java_pid="$!"
 
+    start_virtual_media_api "$java_pid"
     start_virtual_media_if_requested "$java_pid"
-    wait "$java_pid"
+    start_virtual_media_gui_if_requested "$java_pid"
+    java_status=0
+    wait "$java_pid" || java_status="$?"
+    stop_virtual_media_api
+    exit "$java_status"
 }
 
 load_configuration() {
@@ -406,6 +454,7 @@ load_configuration() {
     : "${IDRAC_VNC_PORT:=5901}"
     : "${IDRAC_VNC_SECURITY_TYPES:=TLSVnc,VncAuth,TLSNone,None}"
     : "${IDRAC_VNC_GNUTLS_PRIORITY:=NORMAL}"
+    : "${VIRTUAL_MEDIA_GUI:=false}"
 
     initialize_workdir
     require_env IDRAC_HOST

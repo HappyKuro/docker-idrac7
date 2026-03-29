@@ -1,3 +1,5 @@
+__pycache__
+.git
 _reference_docker_idrac6
 .dotnet
 appdata
@@ -8,5 +10,12 @@ err.txt
 out.txt
 tools-cfr.jar
 data/app-argtest
+data/app
+data/app-cleancheck
 data/app-direct
 data/app-fixed
+data/app-secret
+data/screenshots
+data/screenshots-secret
+data/startapp.sh
+data/vmedia

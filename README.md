@@ -13,15 +13,15 @@ The container follows the same pattern as the iDRAC6 project:
 For the setup we validated here, the simplest working launch path is direct `IDRAC_USER` / `IDRAC_PASSWORD` mode with the certificate JNI compatibility shim enabled:
 
 ```powershell
-docker run -d \
-  --name idrac7 \
-  -p 5800:5800 \
-  -e IDRAC_HOST=192.168.0.17 \
-  -e IDRAC_PORT=443 \
-  -e IDRAC_USER=root \
-  -e IDRAC_PASSWORD=changeme \
-  -e IDRAC_BYPASS_CERT_JNI=true \
-  -v ${PWD}/data/app:/app \
+docker run -d `
+  --name idrac7 `
+  -p 5800:5800 `
+  -e IDRAC_HOST=192.168.0.17 `
+  -e IDRAC_PORT=443 `
+  -e IDRAC_USER=root `
+  -e IDRAC_PASSWORD=changeme `
+  -e IDRAC_BYPASS_CERT_JNI=true `
+  -v ${PWD}/data/app:/app `
   docker-idrac7
 ```
 
@@ -36,14 +36,14 @@ If your appliance insists on tokenized session credentials, you can still mount 
 Example:
 
 ```powershell
-docker run -d \
-  --name idrac7 \
-  -p 5800:5800 \
-  -e IDRAC_HOST=192.168.0.17 \
-  -e IDRAC_PORT=443 \
-  -e IDRAC_JNLP_FILE=/jnlp/viewer.jnlp \
-  -v D:\DOWNLOADS:/jnlp:ro \
-  -v ${PWD}/data/app:/app \
+docker run -d `
+  --name idrac7 `
+  -p 5800:5800 `
+  -e IDRAC_HOST=192.168.0.17 `
+  -e IDRAC_PORT=443 `
+  -e IDRAC_JNLP_FILE=/jnlp/viewer.jnlp `
+  -v D:\POBRANE:/jnlp:ro `
+  -v ${PWD}/data/app:/app `
   docker-idrac7
 ```
 
@@ -52,16 +52,16 @@ When `IDRAC_JNLP_FILE` is set, the container will use the tokenized launch argum
 If your iDRAC7 virtual console is on the default remote-presence port instead of the JNLP port, you can still run with the token values from the JNLP and override the KVM ports explicitly:
 
 ```powershell
-docker run -d \
-  --name idrac7 \
-  -p 5800:5800 \
-  -e IDRAC_HOST=192.168.0.17 \
-  -e IDRAC_KMPORT=5900 \
-  -e IDRAC_VPORT=5900 \
-  -e IDRAC_USER=11@@... \
-  -e IDRAC_PASSWORD=... \
-  -e IDRAC_BYPASS_CERT_JNI=true \
-  -v ${PWD}/data/app:/app \
+docker run -d `
+  --name idrac7 `
+  -p 5800:5800 `
+  -e IDRAC_HOST=192.168.0.17 `
+  -e IDRAC_KMPORT=5900 `
+  -e IDRAC_VPORT=5900 `
+  -e IDRAC_USER=11@@... `
+  -e IDRAC_PASSWORD=... `
+  -e IDRAC_BYPASS_CERT_JNI=true `
+  -v ${PWD}/data/app:/app `
   docker-idrac7
 ```
 
@@ -90,13 +90,13 @@ docker build -t docker-idrac7 .
 Run it:
 
 ```powershell
-docker run -d \
-  -p 5800:5800 \
-  -p 5900:5900 \
-  -e IDRAC_HOST=idrac7.example.org \
-  -e IDRAC_USER=root \
-  -e IDRAC_PASSWORD=changeme \
-  -v ${PWD}/data/app:/app \
+docker run -d `
+  -p 5800:5800 `
+  -p 5900:5900 `
+  -e IDRAC_HOST=idrac7.example.org `
+  -e IDRAC_USER=root `
+  -e IDRAC_PASSWORD=changeme `
+  -v ${PWD}/data/app:/app `
   docker-idrac7
 ```
 
@@ -111,20 +111,30 @@ If the `/app` bind mount is missing, read-only, or backed by a VM/shared-folder 
 Put ISO files in the `/vmedia` bind mount and set `VIRTUAL_MEDIA` to the filename you want mapped after the KVM window appears:
 
 ```powershell
-docker run -d \
-  --name idrac7 \
-  -p 5800:5800 \
-  -e IDRAC_HOST=192.168.0.17 \
-  -e IDRAC_USER=root \
-  -e IDRAC_PASSWORD=changeme \
-  -e IDRAC_BYPASS_CERT_JNI=true \
-  -e VIRTUAL_MEDIA=installer.iso \
-  -v ${PWD}/data/app:/app \
-  -v ${PWD}/data/vmedia:/vmedia \
+docker run -d `
+  --name idrac7 `
+  -p 5800:5800 `
+  -e IDRAC_HOST=192.168.0.17 `
+  -e IDRAC_USER=root `
+  -e IDRAC_PASSWORD=changeme `
+  -e IDRAC_BYPASS_CERT_JNI=true `
+  -e VIRTUAL_MEDIA=installer.iso `
+  -v ${PWD}/data/app:/app `
+  -v ${PWD}/data/vmedia:/vmedia `
   docker-idrac7
 ```
 
-The helper script waits for the Java viewer window, opens `Launch Virtual Media`, and enters `/vmedia/<filename>` automatically. If your iDRAC is slow to draw the KVM window, increase `VIRTUAL_MEDIA_START_DELAY`.
+The helper script waits for the Java viewer window, opens the hidden virtual-media flow when needed, launches `Add Image`, and submits `/vmedia/<filename>` into Dell's real file chooser automatically. If your iDRAC is slow to draw the KVM window, increase `VIRTUAL_MEDIA_START_DELAY`.
+
+The browser-side control bar includes a `Virtual Media` button. Clicking it opens a browser dialog listing files from `/vmedia`; choose one and click `Add Image` to map it into the running session without needing a separate Dell `Virtual Media` window on screen.
+
+That dialog can also upload a new `ISO`, `IMG`, or `IMA` file directly into `/vmedia`. Click `Upload ISO/IMG`, wait for the upload to finish, and then click `Add Image` on the newly uploaded file. If you want to remove an uploaded file from `/vmedia`, select it in the same dialog and click `Delete`.
+
+`VIRTUAL_MEDIA_GUI` supports these modes:
+
+- `auto`: open the lightweight in-container picker when `/vmedia` already contains files
+- `picker`: always open the lightweight in-container picker window
+- `false`: disable startup GUI helpers and rely on the browser-side `Virtual Media` button or `VIRTUAL_MEDIA=...`
 
 An example compose file is available in [`docker-compose.yml`](./docker-compose.yml).
 
@@ -148,7 +158,11 @@ An example compose file is available in [`docker-compose.yml`](./docker-compose.
 | `IDRAC_EXTRA_KVM_ARGS` | Extra arguments appended after the standard KVM parameters. | No |
 | `IDRAC_KEYCODE_HACK` | Enables the legacy X11 keycode shim. | No |
 | `VIRTUAL_MEDIA` | Filename inside `/vmedia` to automount after the console starts. | No |
+| `VIRTUAL_MEDIA_GUI` | Controls the optional startup helper for virtual media. `auto` opens the lightweight in-container picker when `/vmedia` contains files, `picker` always opens it, and `false` disables startup helpers. The browser-side `Virtual Media` button remains available regardless. Defaults to `false`. | No |
+| `VIRTUAL_MEDIA_GUI_DELAY` | Delay in seconds before the in-GUI virtual media picker appears. Defaults to `3`. | No |
+| `VIRTUAL_MEDIA_MENU_RIGHT_STEPS` | Number of `Right` key presses used after `F10` to reach `Virtual Media` in the Java menu bar. Defaults to `6`. | No |
 | `VIRTUAL_MEDIA_START_DELAY` | Delay in seconds before the virtual media UI automation begins. Defaults to `15`. | No |
+| `VIRTUAL_MEDIA_UPLOAD_MAX_BYTES` | Maximum browser-upload size accepted by the local virtual media API. Defaults to `21474836480` (20 GiB). | No |
 
 Docker secrets are also supported through `/run/secrets/idrac_host`, `/run/secrets/idrac_port`, `/run/secrets/idrac_user`, `/run/secrets/idrac_password`, and `/run/secrets/idrac_jnlp_file`.
 
@@ -165,5 +179,19 @@ For advanced desktop/container tuning options, see the [`docker-baseimage-gui` e
 ## Repository layout
 
 - [`Dockerfile`](./Dockerfile): Docker image definition for the Java/VNC container.
-- [`startapp.sh`](./startapp.sh): Downloads the iDRAC7 Java console artifacts and launches the KVM.
-- [`mountiso.sh`](./mountiso.sh): Optional legacy UI automation for virtual media insertion.
+- [`scripts/startapp.sh`](./scripts/startapp.sh): Downloads the iDRAC7 Java console artifacts and launches the KVM.
+- [`scripts/mountiso.sh`](./scripts/mountiso.sh): Maps a selected `/vmedia` file through Dell's `Add Image` flow.
+- [`scripts/virtual-media-api.py`](./scripts/virtual-media-api.py): Local API for listing, uploading, deleting, and mapping `/vmedia` files.
+- [`scripts/virtual-media-ui.sh`](./scripts/virtual-media-ui.sh): Optional in-container picker for mapping files from `/vmedia`.
+- [`assets/branding/dell-logo.png`](./assets/branding/dell-logo.png): Custom logo used by the noVNC/iDRAC browser UI.
+- [`web/idrac-virtual-media.js`](./web/idrac-virtual-media.js): Browser-side Virtual Media modal injected into noVNC.
+- [`config/nginx/default_site.conf`](./config/nginx/default_site.conf) and [`config/nginx/virtual-media-api.conf`](./config/nginx/virtual-media-api.conf): nginx wiring for the browser UI and local media API.
+- [`src/java/IdracLauncher.java`](./src/java/IdracLauncher.java) and [`src/java/wrapper-src`](./src/java/wrapper-src): Java launcher and certificate compatibility wrapper sources.
+- [`src/native/keycode-hack.c`](./src/native/keycode-hack.c): Optional native X11 keycode shim.
+- [`config/java/java.security.override`](./config/java/java.security.override): JVM security overrides used by the legacy Dell viewer.
+
+Runtime data stays under [`data`](./data) and is intentionally git-ignored so you can keep downloaded JARs, screenshots, and media files locally without polluting the repository.
+
+
+## KNOWN BUGS
+when you're connected into java kvm session and u click into about idrac remote console it gets crash

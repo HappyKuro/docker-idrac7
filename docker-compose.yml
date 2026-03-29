@@ -16,6 +16,7 @@ services:
       # IDRAC_JNLP_FILE: /jnlp/viewer.jnlp
       # IDRAC_KEYCODE_HACK: "true"
       # VIRTUAL_MEDIA: installer.iso
+      # VIRTUAL_MEDIA_GUI: "picker"
       # VIRTUAL_MEDIA_START_DELAY: 15
     volumes:
       - ./data/app:/app

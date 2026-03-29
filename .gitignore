@@ -1,7 +1,25 @@
+# Local tooling
+/.dotnet/
+/appdata/
+/__pycache__/
+*.pyc
+*.pyo
+
 # Runtime caches and downloaded appliance artifacts
 /data/app/*
 !/data/app/.gitkeep
+/data/app-secret/
+/data/app-cleancheck/
 /data/screenshots/*
 !/data/screenshots/.gitkeep
+/data/screenshots-secret/
 /data/vmedia/*
 !/data/vmedia/.gitkeep
+/data/startapp.sh
+
+# Optional local secrets
+/secrets/
+
+# If the WinForms helper gets added back later
+IdracVirtualConsoleViewer.App/bin/
+IdracVirtualConsoleViewer.App/obj/
