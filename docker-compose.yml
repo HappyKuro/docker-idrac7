@@ -8,7 +8,7 @@ services:
       - "5800:5800"
       - "5900:5900"
     environment:
-      IDRAC_HOST: ${IDRAC_HOST:-192.168.0.17}
+      IDRAC_HOST: ${IDRAC_HOST:-idrac7.example.org}
       IDRAC_PORT: ${IDRAC_PORT:-443}
       IDRAC_USER: ${IDRAC_USER:-root}
       IDRAC_PASSWORD: ${IDRAC_PASSWORD:-changeme}
