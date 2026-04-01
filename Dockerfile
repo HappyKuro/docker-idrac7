@@ -11,6 +11,7 @@ ENV APP_NAME="iDRAC 7" \
 
 COPY keycode-hack.c /tmp/keycode-hack.c
 COPY IdracLauncher.java /tmp/IdracLauncher.java
+COPY Dell_Logo.png /tmp/Dell_Logo.png
 COPY wrapper-src /opt/idrac-wrapper-src
 COPY java.security.override /etc/java.security.override
 
@@ -23,12 +24,13 @@ RUN apt-get update && \
     gcc -o /keycode-hack.so /tmp/keycode-hack.c -shared -s -ldl -fPIC && \
     mkdir -p /opt/idrac-wrapper && \
     javac -d /opt/idrac-wrapper /tmp/IdracLauncher.java && \
+    /opt/base/bin/install_app_icon.sh /tmp/Dell_Logo.png && \
     mkdir -p /app /vmedia /screenshots && \
     chown ${USER_ID}:${GROUP_ID} /app /vmedia /screenshots && \
     rm -f /usr/lib/jvm/zulu8-ca-amd64/jre/lib/security/java.security && \
     apt-get remove -y gcc gnupg libc6-dev && \
     apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/* /tmp/keycode-hack.c /tmp/IdracLauncher.java
+    rm -rf /var/lib/apt/lists/* /tmp/keycode-hack.c /tmp/IdracLauncher.java /tmp/Dell_Logo.png
 
 COPY startapp.sh /startapp.sh
 COPY mountiso.sh /mountiso.sh
