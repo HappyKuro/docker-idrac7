@@ -14,7 +14,6 @@ services:
       IDRAC_PASSWORD: ${IDRAC_PASSWORD:-changeme}
       IDRAC_BYPASS_CERT_JNI: "${IDRAC_BYPASS_CERT_JNI:-true}"
       # Optional:
-      # IDRAC_JNLP_FILE: /jnlp/viewer.jnlp
       # IDRAC_KEYCODE_HACK: "true"
       # VIRTUAL_MEDIA: installer.iso
       # VIRTUAL_MEDIA_START_DELAY: 15
@@ -22,7 +21,6 @@ services:
       - ./data/app:/app
       - ./data/vmedia:/vmedia
       - ./data/screenshots:/screenshots
-      # - /path/to/jnlp:/jnlp:ro
 
   idrac7-secret:
     profiles: ["secret"]
@@ -40,12 +38,10 @@ services:
       - idrac_host
       - idrac_user
       - idrac_password
-      # - idrac_jnlp_file
     volumes:
       - ./data/app-secret:/app
       - ./data/vmedia:/vmedia
       - ./data/screenshots-secret:/screenshots
-      # - /path/to/jnlp:/jnlp:ro
 
 secrets:
   idrac_host:
@@ -54,5 +50,3 @@ secrets:
     file: ./secrets/idrac_user.txt
   idrac_password:
     file: ./secrets/idrac_password.txt
-  # idrac_jnlp_file:
-  #   file: ./secrets/idrac_jnlp_file.txt

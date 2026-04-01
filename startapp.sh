@@ -38,18 +38,6 @@ require_env() {
     fi
 }
 
-extract_jnlp_argument() {
-    name="$1"
-    file="$2"
-    sed -n "s#.*<argument>${name}=\(.*\)</argument>.*#\1#p" "$file" | head -n 1
-}
-
-extract_jnlp_native_href() {
-    pattern="$1"
-    file="$2"
-    sed -n "s#.*<nativelib href=\"\\([^\"]*${pattern}[^\"]*\\)\".*#\\1#p" "$file" | head -n 1
-}
-
 download_appliance_file_if_missing() {
     target="$1"
     remote_name="$2"
@@ -86,24 +74,6 @@ try_download_appliance_file_if_missing() {
 
     rm -f "$target"
     return 1
-}
-
-download_absolute_if_missing() {
-    target="$1"
-    absolute_url="$2"
-
-    if [ -f "$target" ]; then
-        return 0
-    fi
-
-    info "Downloading $(basename "$target") from ${absolute_url}"
-
-    if wget -O "$target" "$absolute_url" --no-check-certificate; then
-        return 0
-    fi
-
-    rm -f "$target"
-    die 2 "Failed to download ${absolute_url}."
 }
 
 ensure_writable_dir() {
@@ -221,82 +191,16 @@ start_vnc_mode() {
 }
 
 prepare_launch_parameters() {
-    JAVA_USER_ARG="${IDRAC_USER:-}"
-    JAVA_PASSWORD_ARG="${IDRAC_PASSWORD:-}"
+    JAVA_USER_ARG="${IDRAC_USER}"
+    JAVA_PASSWORD_ARG="${IDRAC_PASSWORD}"
     JAVA_IDRAC_KMPORT="$IDRAC_KMPORT"
     JAVA_IDRAC_VPORT="$IDRAC_VPORT"
-    JAVA_EXTRA_FIXED_ARGS=""
-    KVM_JAR_URL=""
-    KVM_NATIVE_URL=""
-    VM_NATIVE_URL=""
-
-    if [ -z "${IDRAC_JNLP_FILE:-}" ]; then
-        JAVA_EXTRA_FIXED_ARGS=" vm=1 reconnect=2 chat=1 F1=1 custom=0 scaling=15 minwinheight=100 minwinwidth=100 videoborder=0"
-        return 0
-    fi
-
-    if [ ! -f "${IDRAC_JNLP_FILE}" ]; then
-        die 1 "IDRAC_JNLP_FILE does not exist: ${IDRAC_JNLP_FILE}"
-    fi
-
-    info "Using launcher parameters from ${IDRAC_JNLP_FILE}"
-
-    JAVA_USER_ARG="$(extract_jnlp_argument user "${IDRAC_JNLP_FILE}")"
-    JAVA_PASSWORD_ARG="$(extract_jnlp_argument passwd "${IDRAC_JNLP_FILE}")"
-    JAVA_IDRAC_KMPORT="$(extract_jnlp_argument kmport "${IDRAC_JNLP_FILE}")"
-    JAVA_IDRAC_VPORT="$(extract_jnlp_argument vport "${IDRAC_JNLP_FILE}")"
-
-    if [ -n "${IDRAC_USER:-}" ]; then
-        JAVA_USER_ARG="${IDRAC_USER}"
-    fi
-    if [ -n "${IDRAC_PASSWORD:-}" ]; then
-        JAVA_PASSWORD_ARG="${IDRAC_PASSWORD}"
-    fi
-    if [ -n "${IDRAC_KMPORT:-}" ]; then
-        JAVA_IDRAC_KMPORT="${IDRAC_KMPORT}"
-    fi
-    if [ -n "${IDRAC_VPORT:-}" ]; then
-        JAVA_IDRAC_VPORT="${IDRAC_VPORT}"
-    fi
-
-    for arg_name in vm title reconnect chat F1 custom scaling minwinheight minwinwidth videoborder version apcp; do
-        arg_value="$(extract_jnlp_argument "${arg_name}" "${IDRAC_JNLP_FILE}")"
-        if [ -n "${arg_value}" ]; then
-            JAVA_EXTRA_FIXED_ARGS="${JAVA_EXTRA_FIXED_ARGS} ${arg_name}=${arg_value}"
-        fi
-    done
-
-    KVM_JAR_URL="$(sed -n 's#.*<jar href=\"\([^\"]*avctKVM.jar\)\".*#\1#p' "${IDRAC_JNLP_FILE}" | head -n 1)"
-    KVM_NATIVE_URL="$(extract_jnlp_native_href 'avctKVMIOLinux64.jar' "${IDRAC_JNLP_FILE}")"
-    VM_NATIVE_URL="$(extract_jnlp_native_href 'avctVMAPI_DLLLinux64.jar' "${IDRAC_JNLP_FILE}")"
-
-    if [ -z "${JAVA_USER_ARG}" ] || [ -z "${JAVA_PASSWORD_ARG}" ] || [ -z "${JAVA_IDRAC_KMPORT}" ]; then
-        die 1 "The supplied JNLP file is missing required launch arguments."
-    fi
+    JAVA_EXTRA_FIXED_ARGS=" vm=1 reconnect=2 chat=1 F1=1 custom=0 scaling=15 minwinheight=100 minwinwidth=100 videoborder=0"
 }
 
 download_console_artifacts() {
-    if [ -n "${KVM_JAR_URL}" ]; then
-        download_absolute_if_missing "${APP_WORKDIR}/avctKVM.jar" "${KVM_JAR_URL}"
-    else
-        download_appliance_file_if_missing "${APP_WORKDIR}/avctKVM.jar" avctKVM.jar
-    fi
-
-    if [ -n "${KVM_NATIVE_URL}" ]; then
-        download_absolute_if_missing "${APP_LIBDIR}/avctKVMIOLinux64.jar" "${KVM_NATIVE_URL}"
-    else
-        download_appliance_file_if_missing "${APP_LIBDIR}/avctKVMIOLinux64.jar" avctKVMIOLinux64.jar
-    fi
-
-    if [ -n "${VM_NATIVE_URL}" ]; then
-        download_absolute_if_missing "${APP_LIBDIR}/avctVMAPI_DLLLinux64.jar" "${VM_NATIVE_URL}"
-        return 0
-    fi
-
-    if [ -n "${IDRAC_JNLP_FILE:-}" ]; then
-        download_appliance_file_if_missing "${APP_LIBDIR}/avctVMAPI_DLLLinux64.jar" avctVMAPI_DLLLinux64.jar
-        return 0
-    fi
+    download_appliance_file_if_missing "${APP_WORKDIR}/avctKVM.jar" avctKVM.jar
+    download_appliance_file_if_missing "${APP_LIBDIR}/avctKVMIOLinux64.jar" avctKVMIOLinux64.jar
 
     if ! try_download_appliance_file_if_missing "${APP_LIBDIR}/avctVMAPI_DLLLinux64.jar" avctVMAPI_DLLLinux64.jar; then
         download_appliance_file_if_missing "${APP_LIBDIR}/avctVMLinux64.jar" avctVMLinux64.jar
@@ -395,7 +299,6 @@ load_configuration() {
     read_secret IDRAC_USER idrac_user
     read_secret IDRAC_PASSWORD idrac_password
     read_secret IDRAC_VNC_PASSWORD idrac_vnc_password
-    read_secret IDRAC_JNLP_FILE idrac_jnlp_file
 
     : "${IDRAC_PORT:=443}"
     : "${IDRAC_MODE:=java}"
@@ -414,10 +317,8 @@ load_configuration() {
 
     case "${IDRAC_MODE}" in
         java)
-            if [ -z "${IDRAC_JNLP_FILE:-}" ]; then
-                require_env IDRAC_USER
-                require_env IDRAC_PASSWORD
-            fi
+            require_env IDRAC_USER
+            require_env IDRAC_PASSWORD
             ;;
         vnc)
             ;;

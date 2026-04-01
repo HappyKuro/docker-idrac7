@@ -27,45 +27,7 @@ docker run -d \
   docker-idrac7
 ```
 
-When running in plain `IDRAC_USER` / `IDRAC_PASSWORD` mode, the container now automatically adds the same non-auth launch arguments Dell includes in `viewer.jnlp` (`vm=1 reconnect=2 chat=1 F1=1 custom=0 scaling=15 ...`). This avoids the unstable reconnect loop seen on some iDRAC7 systems when the legacy viewer is launched with only the bare minimum arguments.
-
-If your appliance insists on tokenized session credentials, you can still mount a fresh `viewer.jnlp` from the iDRAC. The JNLP contains:
-
-- the one-time `user` / `passwd` session tokens expected by the Java applet
-- the current KVM and virtual-media ports
-- the correct Linux native library names for this firmware (`avctKVMIOLinux64.jar` and `avctVMAPI_DLLLinux64.jar`)
-
-Example:
-
-```bash
-docker run -d \
-  --name idrac7 \
-  -p 5800:5800 \
-  -e IDRAC_HOST=192.168.0.17 \
-  -e IDRAC_PORT=443 \
-  -e IDRAC_JNLP_FILE=/jnlp/viewer.jnlp \
-  -v /path/to/downloads:/jnlp:ro \
-  -v ${PWD}/data/app:/app \
-  docker-idrac7
-```
-
-When `IDRAC_JNLP_FILE` is set, the container will use the tokenized launch arguments from the JNLP instead of requiring `IDRAC_USER` and `IDRAC_PASSWORD`. If the downloaded JNLP contains a stale console port, any explicit `IDRAC_USER`, `IDRAC_PASSWORD`, `IDRAC_KMPORT`, or `IDRAC_VPORT` environment variables will override the JNLP values.
-
-If your iDRAC7 virtual console is on the default remote-presence port instead of the JNLP port, you can still run with the token values from the JNLP and override the KVM ports explicitly:
-
-```bash
-docker run -d \
-  --name idrac7 \
-  -p 5800:5800 \
-  -e IDRAC_HOST=192.168.0.17 \
-  -e IDRAC_KMPORT=5900 \
-  -e IDRAC_VPORT=5900 \
-  -e IDRAC_USER=11@@... \
-  -e IDRAC_PASSWORD=... \
-  -e IDRAC_BYPASS_CERT_JNI=true \
-  -v ${PWD}/data/app:/app \
-  docker-idrac7
-```
+The launcher automatically adds the compatibility arguments needed by the legacy Java KVM (`vm=1 reconnect=2 chat=1 F1=1 custom=0 scaling=15 ...`). This keeps the default username/password launch path stable on the iDRAC7 systems we validated.
 
 ## Important limitation
 
@@ -77,7 +39,7 @@ This image targets the legacy Java-based iDRAC7 virtual console path. It expects
 
 If your iDRAC7 firmware is configured for HTML5-only launch or serves the Java components from a different path, startup will fail until you either switch the appliance back to Java launch mode or override `IDRAC_DOWNLOAD_BASE`.
 
-Even with the correct JNLP, some iDRAC7 firmware/security combinations still reject the legacy Avocent Java client's TLS handshake unless elliptic-curve cipher support is bootstrapped manually. This image now does that automatically by registering Java's `SunEC` provider before Dell's launcher starts.
+Some iDRAC7 firmware/security combinations still reject the legacy Avocent Java client's TLS handshake unless elliptic-curve cipher support is bootstrapped manually. This image now does that automatically by registering Java's `SunEC` provider before Dell's launcher starts.
 
 Some appliances also trigger Dell's native certificate JNI path, which can fail inside the container. For those cases you can set `IDRAC_BYPASS_CERT_JNI=true` to patch the downloaded `avctKVM.jar` in `/app` and replace that native certificate check with a pure-Java compatibility shim. This is less strict than Dell's original path and should be treated as a trust bypass for private/lab use.
 
@@ -149,9 +111,8 @@ An example compose file is available in [`docker-compose.yml`](./docker-compose.
 | --- | --- | --- |
 | `IDRAC_HOST` | Hostname or IP of the iDRAC7 appliance. HTTPS is always used. | Yes |
 | `IDRAC_MODE` | Launch mode. Defaults to `java`; set to `vnc` only when you want to connect with the native VNC viewer path instead of the Java KVM launcher. | No |
-| `IDRAC_USER` | iDRAC username. Required only when `IDRAC_JNLP_FILE` is not provided. | Conditionally |
-| `IDRAC_PASSWORD` | iDRAC password. Required only when `IDRAC_JNLP_FILE` is not provided. | Conditionally |
-| `IDRAC_JNLP_FILE` | Absolute path to a downloaded `viewer.jnlp` mounted into the container. Recommended for iDRAC7. | No |
+| `IDRAC_USER` | iDRAC username. Required in `java` mode. | Conditionally |
+| `IDRAC_PASSWORD` | iDRAC password. Required in `java` mode. | Conditionally |
 | `IDRAC_PORT` | HTTPS port for the iDRAC web UI. Defaults to `443`. | No |
 | `IDRAC_CACHE_DIR` | Writable directory used for downloaded JARs, extracted native libraries, and Java prefs. Defaults to `/app`, with automatic fallback to `/tmp/idrac-app` when `/app` is not writable. | No |
 | `IDRAC_KMPORT` | KVM port passed to the Java launcher. Defaults to `5900`. | No |
@@ -166,7 +127,7 @@ An example compose file is available in [`docker-compose.yml`](./docker-compose.
 | `VIRTUAL_MEDIA` | Filename inside `/vmedia` to automount after the console starts. | No |
 | `VIRTUAL_MEDIA_START_DELAY` | Delay in seconds before the virtual media UI automation begins. Defaults to `15`. | No |
 
-Docker secrets are also supported through `/run/secrets/idrac_host`, `/run/secrets/idrac_port`, `/run/secrets/idrac_user`, `/run/secrets/idrac_password`, and `/run/secrets/idrac_jnlp_file`.
+Docker secrets are also supported through `/run/secrets/idrac_host`, `/run/secrets/idrac_port`, `/run/secrets/idrac_user`, and `/run/secrets/idrac_password`.
 
 For advanced desktop/container tuning options, see the [`docker-baseimage-gui` environment variable reference](https://github.com/jlesage/docker-baseimage-gui#environment-variables).
 
