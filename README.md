@@ -8,11 +8,13 @@ The container follows the same pattern as the iDRAC6 project:
 - Download Dell's legacy Java console artifacts from the target iDRAC appliance at startup.
 - Launch the Java KVM inside the container and expose it through the built-in web UI on port `5800` or raw VNC on port `5900`.
 
+`java` mode is the primary and default mode in this repository. The optional `vnc` mode remains available for appliances that expose a native VNC viewer path, but the main examples and Compose setup now target the legacy Java KVM flow first.
+
 ## Recommended launch mode
 
 For the setup we validated here, the simplest working launch path is direct `IDRAC_USER` / `IDRAC_PASSWORD` mode with the certificate JNI compatibility shim enabled:
 
-```powershell
+```bash
 docker run -d \
   --name idrac7 \
   -p 5800:5800 \
@@ -35,14 +37,14 @@ If your appliance insists on tokenized session credentials, you can still mount 
 
 Example:
 
-```powershell
+```bash
 docker run -d \
   --name idrac7 \
   -p 5800:5800 \
   -e IDRAC_HOST=192.168.0.17 \
   -e IDRAC_PORT=443 \
   -e IDRAC_JNLP_FILE=/jnlp/viewer.jnlp \
-  -v D:\DOWNLOADS:/jnlp:ro \
+  -v /path/to/downloads:/jnlp:ro \
   -v ${PWD}/data/app:/app \
   docker-idrac7
 ```
@@ -51,7 +53,7 @@ When `IDRAC_JNLP_FILE` is set, the container will use the tokenized launch argum
 
 If your iDRAC7 virtual console is on the default remote-presence port instead of the JNLP port, you can still run with the token values from the JNLP and override the KVM ports explicitly:
 
-```powershell
+```bash
 docker run -d \
   --name idrac7 \
   -p 5800:5800 \
@@ -83,22 +85,35 @@ Some appliances also trigger Dell's native certificate JNI path, which can fail 
 
 Build the image:
 
-```powershell
+```bash
 docker build -t docker-idrac7 .
 ```
 
-Run it:
+Run it directly:
 
-```powershell
+```bash
 docker run -d \
+  --name idrac7 \
   -p 5800:5800 \
   -p 5900:5900 \
   -e IDRAC_HOST=idrac7.example.org \
+  -e IDRAC_PORT=443 \
   -e IDRAC_USER=root \
   -e IDRAC_PASSWORD=changeme \
+  -e IDRAC_BYPASS_CERT_JNI=true \
   -v ${PWD}/data/app:/app \
+  -v ${PWD}/data/vmedia:/vmedia \
+  -v ${PWD}/data/screenshots:/screenshots \
   docker-idrac7
 ```
+
+Run it with Docker Compose:
+
+```bash
+docker compose up -d --build idrac7
+```
+
+The bundled [`docker-compose.yml`](./docker-compose.yml) treats the `idrac7` service as the primary Java-mode service and reads host credentials from environment variables, so you can keep local values out of the committed YAML. `IDRAC_MODE` is omitted there because `java` is already the default in [`startapp.sh`](./startapp.sh).
 
 The web interface will be available on port `5800` and the VNC server on `5900`. The first startup can take a little longer because the console JARs are downloaded from the appliance into `/app`.
 
@@ -110,7 +125,7 @@ If the `/app` bind mount is missing, read-only, or backed by a VM/shared-folder 
 
 Put ISO files in the `/vmedia` bind mount and set `VIRTUAL_MEDIA` to the filename you want mapped after the KVM window appears:
 
-```powershell
+```bash
 docker run -d \
   --name idrac7 \
   -p 5800:5800 \
@@ -133,6 +148,7 @@ An example compose file is available in [`docker-compose.yml`](./docker-compose.
 | Variable | Description | Required |
 | --- | --- | --- |
 | `IDRAC_HOST` | Hostname or IP of the iDRAC7 appliance. HTTPS is always used. | Yes |
+| `IDRAC_MODE` | Launch mode. Defaults to `java`; set to `vnc` only when you want to connect with the native VNC viewer path instead of the Java KVM launcher. | No |
 | `IDRAC_USER` | iDRAC username. Required only when `IDRAC_JNLP_FILE` is not provided. | Conditionally |
 | `IDRAC_PASSWORD` | iDRAC password. Required only when `IDRAC_JNLP_FILE` is not provided. | Conditionally |
 | `IDRAC_JNLP_FILE` | Absolute path to a downloaded `viewer.jnlp` mounted into the container. Recommended for iDRAC7. | No |

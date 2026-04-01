@@ -2,16 +2,17 @@ services:
   idrac7:
     build:
       context: .
+    image: docker-idrac7
     restart: unless-stopped
     ports:
       - "5800:5800"
       - "5900:5900"
     environment:
-      IDRAC_HOST: idrac7.example.org
-      IDRAC_PORT: 443
-      IDRAC_USER: root
-      IDRAC_PASSWORD: changeme
-      IDRAC_BYPASS_CERT_JNI: "true"
+      IDRAC_HOST: ${IDRAC_HOST:-192.168.0.17}
+      IDRAC_PORT: ${IDRAC_PORT:-443}
+      IDRAC_USER: ${IDRAC_USER:-root}
+      IDRAC_PASSWORD: ${IDRAC_PASSWORD:-changeme}
+      IDRAC_BYPASS_CERT_JNI: "${IDRAC_BYPASS_CERT_JNI:-true}"
       # Optional:
       # IDRAC_JNLP_FILE: /jnlp/viewer.jnlp
       # IDRAC_KEYCODE_HACK: "true"
@@ -24,12 +25,17 @@ services:
       # - /path/to/jnlp:/jnlp:ro
 
   idrac7-secret:
+    profiles: ["secret"]
     build:
       context: .
+    image: docker-idrac7
     restart: unless-stopped
     ports:
       - "5801:5800"
       - "5901:5900"
+    environment:
+      IDRAC_PORT: ${IDRAC_PORT:-443}
+      IDRAC_BYPASS_CERT_JNI: "${IDRAC_BYPASS_CERT_JNI:-true}"
     secrets:
       - idrac_host
       - idrac_user
