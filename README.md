@@ -18,7 +18,7 @@ For the setup we validated here, the simplest working launch path is direct `IDR
 docker run -d \
   --name idrac7 \
   -p 5800:5800 \
-  -e IDRAC_HOST=192.168.0.17 \
+  -e IDRAC_HOST=idrac7.example.org \
   -e IDRAC_PORT=443 \
   -e IDRAC_USER=root \
   -e IDRAC_PASSWORD=changeme \
@@ -91,7 +91,7 @@ Put ISO files in the `/vmedia` bind mount and set `VIRTUAL_MEDIA` to the filenam
 docker run -d \
   --name idrac7 \
   -p 5800:5800 \
-  -e IDRAC_HOST=192.168.0.17 \
+  -e IDRAC_HOST=idrac7.example.org \
   -e IDRAC_USER=root \
   -e IDRAC_PASSWORD=changeme \
   -e IDRAC_BYPASS_CERT_JNI=true \
