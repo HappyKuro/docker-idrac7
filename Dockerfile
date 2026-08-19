@@ -15,7 +15,12 @@ COPY Dell_Logo.png /tmp/Dell_Logo.png
 COPY wrapper-src /opt/idrac-wrapper-src
 COPY java.security.override /etc/java.security.override
 
-RUN apt-get update && \
+# /var/log is a symlink to /config/log in the base image, and /config is only
+# populated at runtime. Package postinst scripts that write a log file
+# (fontconfig's fc-cache, plus everything depending on it: pango, librsvg,
+# libavcodec, tigervnc-viewer) fail the build unless that target exists.
+RUN mkdir -p /config/log && \
+    apt-get update && \
     apt-get install -y --no-install-recommends wget gnupg ca-certificates curl libx11-dev libc6-dev gcc xdotool tigervnc-viewer tigervnc-tools && \
     curl -fsSL https://repos.azul.com/azul-repo.key | gpg --dearmor -o /usr/share/keyrings/azul.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/azul.gpg] https://repos.azul.com/zulu/deb stable main" > /etc/apt/sources.list.d/zulu.list && \
@@ -27,7 +32,6 @@ RUN apt-get update && \
     /opt/base/bin/install_app_icon.sh /tmp/Dell_Logo.png && \
     mkdir -p /app /vmedia /screenshots && \
     chown ${USER_ID}:${GROUP_ID} /app /vmedia /screenshots && \
-    rm -f /usr/lib/jvm/zulu8-ca-amd64/jre/lib/security/java.security && \
     apt-get remove -y gcc gnupg libc6-dev && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* /tmp/keycode-hack.c /tmp/IdracLauncher.java /tmp/Dell_Logo.png

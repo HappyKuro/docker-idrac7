@@ -105,6 +105,14 @@ initialize_workdir() {
     fi
 
     mkdir -p "${APP_LIBDIR}" "${APP_PREFS_USER_ROOT}" "${APP_PREFS_SYSTEM_ROOT}"
+
+    # PRISTINE_KVM_JAR is exactly what the appliance served and is never
+    # modified in place; PATCHED_KVM_JAR is the optional cert-shim rebuild.
+    # KVM_JAR selects which of the two actually gets launched.
+    PRISTINE_KVM_JAR="${APP_WORKDIR}/avctKVM.jar"
+    PATCHED_KVM_JAR="${APP_WORKDIR}/avctKVM.patched.jar"
+    KVM_JAR="${PRISTINE_KVM_JAR}"
+
     info "Using cache directory ${APP_WORKDIR}"
 }
 
@@ -142,25 +150,38 @@ patch_certificate_jni_if_needed() {
         rm -f "$patched_jar"
     }
 
-    if ! javac -cp "${APP_WORKDIR}/avctKVM.jar" -d "$override_dir" /opt/idrac-wrapper-src/com/avocent/app/security/X509CertificateJNI.java; then
+    if ! javac -cp "${PRISTINE_KVM_JAR}" -d "$override_dir" /opt/idrac-wrapper-src/com/avocent/app/security/X509CertificateJNI.java; then
         cleanup_patch_dirs
         die 4 "Failed to compile the certificate JNI wrapper override."
     fi
 
+    # Repack with "jar cfm": a plain "jar cf" silently drops the jar's own
+    # META-INF/MANIFEST.MF and substitutes a two-line stub, which loses
+    # Main-Class, Class-Path and the applet security attributes Dell ships.
+    # Removing just the signature files leaves the manifest safe to reuse.
     (
         cd "$patch_dir" && \
-        jar xf "${APP_WORKDIR}/avctKVM.jar" && \
+        jar xf "${PRISTINE_KVM_JAR}" && \
         rm -f META-INF/*.SF META-INF/*.RSA META-INF/*.DSA && \
         mkdir -p com/avocent/app/security && \
         cp "${override_dir}/com/avocent/app/security/X509CertificateJNI.class" com/avocent/app/security/X509CertificateJNI.class && \
-        jar cf "$patched_jar" .
+        if [ -f META-INF/MANIFEST.MF ]; then
+            jar cfm "$patched_jar" META-INF/MANIFEST.MF .
+        else
+            jar cf "$patched_jar" .
+        fi
     ) || {
         cleanup_patch_dirs
         die 4 "Failed to patch avctKVM.jar with the certificate JNI override."
     }
 
-    mv "$patched_jar" "${APP_WORKDIR}/avctKVM.jar"
+    # Never overwrite the cached download. The pristine jar has to stay on
+    # disk so that turning IDRAC_BYPASS_CERT_JNI back off actually restores
+    # Dell's original certificate check instead of silently reusing a jar
+    # that is still patched from an earlier run.
+    mv "$patched_jar" "${PATCHED_KVM_JAR}"
     rm -rf "$override_dir" "$patch_dir"
+    KVM_JAR="${PATCHED_KVM_JAR}"
 }
 
 start_vnc_mode() {
@@ -199,7 +220,7 @@ prepare_launch_parameters() {
 }
 
 download_console_artifacts() {
-    download_appliance_file_if_missing "${APP_WORKDIR}/avctKVM.jar" avctKVM.jar
+    download_appliance_file_if_missing "${PRISTINE_KVM_JAR}" avctKVM.jar
     download_appliance_file_if_missing "${APP_LIBDIR}/avctKVMIOLinux64.jar" avctKVMIOLinux64.jar
 
     if ! try_download_appliance_file_if_missing "${APP_LIBDIR}/avctVMAPI_DLLLinux64.jar" avctVMAPI_DLLLinux64.jar; then
@@ -223,7 +244,9 @@ extract_console_artifacts() {
 }
 
 enable_keycode_hack_if_needed() {
-    if [ -n "${IDRAC_KEYCODE_HACK:-}" ]; then
+    : "${IDRAC_KEYCODE_HACK:=false}"
+
+    if [ "$IDRAC_KEYCODE_HACK" = "true" ]; then
         info "Enabling keycode hack"
         export LD_PRELOAD=/keycode-hack.so
     fi
@@ -244,8 +267,8 @@ start_java_mode() {
     prepare_launch_parameters
     download_console_artifacts
     extract_console_artifacts
-    enable_keycode_hack_if_needed
     patch_certificate_jni_if_needed
+    enable_keycode_hack_if_needed
 
     info "${GREEN}Initialization complete, starting virtual console${NC}"
 
@@ -261,7 +284,7 @@ start_java_mode() {
         -Djava.util.prefs.userRoot="${APP_PREFS_USER_ROOT}" \
         -Djava.util.prefs.systemRoot="${APP_PREFS_SYSTEM_ROOT}" \
         -Didrac.main.class="${IDRAC_MAIN_CLASS}" \
-        -cp "/opt/idrac-wrapper:${APP_WORKDIR}/avctKVM.jar" \
+        -cp "/opt/idrac-wrapper:${KVM_JAR}" \
         -Djava.library.path="${APP_LIBDIR}" \
         IdracLauncher \
         "ip=${IDRAC_HOST}" \
@@ -307,12 +330,13 @@ load_configuration() {
     : "${IDRAC_VPORT:=5900}"
     : "${IDRAC_DOWNLOAD_BASE:=/software}"
     : "${IDRAC_MAIN_CLASS:=com.avocent.idrac.kvm.Main}"
-    : "${IDRAC_HELPURL:=https://${IDRAC_HOST}:${IDRAC_PORT}/help/contents.html}"
     : "${IDRAC_VNC_PORT:=5901}"
     : "${IDRAC_VNC_SECURITY_TYPES:=TLSVnc,VncAuth,TLSNone,None}"
     : "${IDRAC_VNC_GNUTLS_PRIORITY:=NORMAL}"
 
-    initialize_workdir
+    # Validate before deriving anything from IDRAC_HOST: IDRAC_HELPURL
+    # interpolates it, and under "set -u" that aborted with a bare
+    # "parameter not set" instead of the intended "Please set IDRAC_HOST".
     require_env IDRAC_HOST
 
     case "${IDRAC_MODE}" in
@@ -326,6 +350,10 @@ load_configuration() {
             die 1 "Unsupported IDRAC_MODE: ${IDRAC_MODE}"
             ;;
     esac
+
+    : "${IDRAC_HELPURL:=https://${IDRAC_HOST}:${IDRAC_PORT}/help/contents.html}"
+
+    initialize_workdir
 
     info "Environment ok"
     info "Selected launch mode: ${IDRAC_MODE}"

@@ -1,6 +1,18 @@
 // from https://github.com/anchor/idrac-kvm-keyboard-fix
 /*
  * Shared library hack to translate evdev keycodes to old style keycodes.
+ *
+ * Dell's Avocent client carries a hardcoded keycode -> PS/2 scancode table
+ * built when X still used the XFree86 keymap. Modern X servers hand out evdev
+ * keycodes instead, so we intercept XNextEvent, look up which key the event
+ * really was via its keysym, and rewrite the keycode to the XFree86 value the
+ * client expects.
+ *
+ * Every value below is therefore an OLD-STYLE XFree86 keycode, never an evdev
+ * one. The two keymaps agree across the main typing block (that part of the
+ * table doubles as layout normalisation), but they diverge for the navigation
+ * cluster, the right-hand modifiers and part of the keypad -- and it is exactly
+ * there that writing an evdev value silently turns an entry into a no-op.
  */
 #include <stdio.h>
 #include <unistd.h>
@@ -16,7 +28,7 @@ static int hack_initialised = 0;
 
 #define DEBUG 0
 
-#ifdef DEBUG
+#if DEBUG
 static FILE *fd = NULL;
 #endif
 
@@ -52,7 +64,7 @@ hack_init(void)
         _exit(1);
     }
 
-#ifdef DEBUG
+#if DEBUG
     if (fd == NULL) {
         fd = fopen("/tmp/keycode-log", "a");
         if (fd == NULL)
@@ -78,9 +90,11 @@ XNextEvent(Display *display, XEvent *event)
         KeySym keysym;
 
         keyevent = (XKeyEvent *)event;
-#ifdef DEBUG
-        fprintf(fd, "KeyEvent: %d\n", keyevent->keycode);
-        fflush(fd);
+#if DEBUG
+        if (fd != NULL) {
+            fprintf(fd, "KeyEvent: %d\n", keyevent->keycode);
+            fflush(fd);
+        }
 #endif
 
         /* mangle keycodes */
@@ -90,27 +104,40 @@ XNextEvent(Display *display, XEvent *event)
           case XK_Shift_R: keyevent->keycode = 62; break;
           case XK_Shift_L: keyevent->keycode = 50; break;
           case XK_Control_L: keyevent->keycode = 37; break;
-          case XK_Control_R: keyevent->keycode = 105; break;
+          case XK_Control_R: keyevent->keycode = 109; break;
           case XK_Alt_L: keyevent->keycode = 64; break;
-          case XK_Alt_R: keyevent->keycode = 108; break;
-          case XK_Super_R: keyevent->keycode = 143; break;
+          case XK_Alt_R: keyevent->keycode = 113; break;
+          case XK_Super_L: keyevent->keycode = 115; break;
+          case XK_Super_R: keyevent->keycode = 116; break;
+          case XK_Menu: keyevent->keycode = 117; break;
           case XK_Caps_Lock: keyevent->keycode = 66; break;
           case XK_Num_Lock: keyevent->keycode = 77; break;
+          case XK_Scroll_Lock: keyevent->keycode = 78; break;
+          case XK_Pause: keyevent->keycode = 110; break;
 
           /* Extended keyboard navigation keys */
-          case XK_Home: keyevent->keycode = 110; break;
-          case XK_End: keyevent->keycode = 115; break;
-          case XK_Prior: keyevent->keycode = 112; break;
-          case XK_Next: keyevent->keycode = 117; break;
-          case XK_Delete: keyevent->keycode = 119; break;
+          case XK_Home: keyevent->keycode = 97; break;
+          case XK_End: keyevent->keycode = 103; break;
+          case XK_Prior: keyevent->keycode = 99; break;
+          case XK_Next: keyevent->keycode = 105; break;
+          case XK_Insert: keyevent->keycode = 106; break;
+          case XK_Delete: keyevent->keycode = 107; break;
+          /* Unmapped, evdev Print is 107 -- which the client would read as
+             Delete. Send the XFree86 Print instead. */
+          case XK_Print: keyevent->keycode = 111; break;
 
           /* Numeric keypad keys */
-          case XK_KP_Equal: keyevent->keycode = 125; break;
-          case XK_KP_Divide: keyevent->keycode = 106; break;
+          case XK_KP_Equal: keyevent->keycode = 126; break;
+          case XK_KP_Divide: keyevent->keycode = 112; break;
           case XK_KP_Multiply: keyevent->keycode = 63; break;
           case XK_KP_Subtract: keyevent->keycode = 82; break;
           case XK_KP_Add: keyevent->keycode = 86; break;
-          case XK_KP_Enter: keyevent->keycode = 104; break;
+          case XK_KP_Enter: keyevent->keycode = 108; break;
+          /* The digit/decimal cases below never actually match: with NumLock
+             off, XKeycodeToKeysym(kc, 0) reports KP_Home/KP_Insert/KP_Delete
+             etc. rather than KP_7/KP_0/KP_Decimal. They are harmless because
+             keycodes 79-91 are identical in both keymaps, so the untouched
+             pass-through is already correct. */
           case XK_KP_Decimal: keyevent->keycode = 91; break;
           case XK_KP_0: keyevent->keycode = 90; break;
           case XK_KP_1: keyevent->keycode = 87; break;
@@ -211,7 +238,7 @@ XNextEvent(Display *display, XEvent *event)
     return r;
 }
 
-#ifdef DEBUG
+#if DEBUG
 KeyCode
 XKeysymToKeycode(Display *display, KeySym keysym)
 {
@@ -222,8 +249,10 @@ XKeysymToKeycode(Display *display, KeySym keysym)
 
     keycode = real_XKeysymToKeycode(display, keysym);
 
-    fprintf(fd, "XKeysymToKeycode: %d\n", keycode);
-    fflush(fd);
+    if (fd != NULL) {
+        fprintf(fd, "XKeysymToKeycode: %d\n", keycode);
+        fflush(fd);
+    }
 
     return keycode;
 }

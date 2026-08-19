@@ -41,7 +41,11 @@ If your iDRAC7 firmware is configured for HTML5-only launch or serves the Java c
 
 Some iDRAC7 firmware/security combinations still reject the legacy Avocent Java client's TLS handshake unless elliptic-curve cipher support is bootstrapped manually. This image now does that automatically by registering Java's `SunEC` provider before Dell's launcher starts.
 
-Some appliances also trigger Dell's native certificate JNI path, which can fail inside the container. For those cases you can set `IDRAC_BYPASS_CERT_JNI=true` to patch the downloaded `avctKVM.jar` in `/app` and replace that native certificate check with a pure-Java compatibility shim. This is less strict than Dell's original path and should be treated as a trust bypass for private/lab use.
+Modern JDK 8 builds also disable TLSv1, TLSv1.1, 3DES and plain ECDH outright, which older iDRAC7 firmware still needs. [`java.security.override`](./java.security.override) relaxes those constraints. It is applied with `-Djava.security.properties=`, which merges it over the JDK's own `lib/security/java.security` - that master file has to stay in place, because it is what enables the override mechanism in the first place. Do not re-declare `security.provider.N` entries in the override either; the stock list already has `SunEC` and `SunJSSE` in the right order.
+
+Some appliances also trigger Dell's native certificate JNI path, which can fail inside the container. For those cases you can set `IDRAC_BYPASS_CERT_JNI=true` to replace that native certificate check with a pure-Java compatibility shim. This is less strict than Dell's original path and should be treated as a trust bypass for private/lab use.
+
+The rebuild is written to `avctKVM.patched.jar`, and the jar downloaded from the appliance is left untouched. Clearing `IDRAC_BYPASS_CERT_JNI` therefore goes back to Dell's original certificate check instead of silently reusing a jar that is still patched from an earlier run.
 
 ## Usage
 
@@ -117,17 +121,29 @@ An example compose file is available in [`docker-compose.yml`](./docker-compose.
 | `IDRAC_CACHE_DIR` | Writable directory used for downloaded JARs, extracted native libraries, and Java prefs. Defaults to `/app`, with automatic fallback to `/tmp/idrac-app` when `/app` is not writable. | No |
 | `IDRAC_KMPORT` | KVM port passed to the Java launcher. Defaults to `5900`. | No |
 | `IDRAC_VPORT` | Virtual media port passed to the Java launcher. Defaults to `5900`. | No |
-| `IDRAC_BYPASS_CERT_JNI` | Rebuilds the cached `avctKVM.jar` in `/app` with a pure-Java certificate compatibility shim. Use only when Dell's native certificate JNI fails. | No |
+| `IDRAC_BYPASS_CERT_JNI` | Rebuilds the cached console jar with a pure-Java certificate compatibility shim, written to `avctKVM.patched.jar` alongside the untouched `avctKVM.jar`. Use only when Dell's native certificate JNI fails. | No |
 | `IDRAC_DOWNLOAD_BASE` | Base path used when downloading the Java console artifacts. Defaults to `/software`. | No |
 | `IDRAC_HELPURL` | Overrides the help URL passed to the Java launcher. | No |
 | `IDRAC_MAIN_CLASS` | Java main class to execute. Defaults to `com.avocent.idrac.kvm.Main`. | No |
 | `IDRAC_EXTRA_JAVA_OPTS` | Extra JVM flags appended before the launcher class. | No |
 | `IDRAC_EXTRA_KVM_ARGS` | Extra arguments appended after the standard KVM parameters. | No |
-| `IDRAC_KEYCODE_HACK` | Enables the legacy X11 keycode shim. | No |
+| `IDRAC_KEYCODE_HACK` | Set to `true` to enable the legacy X11 keycode shim. Any other value leaves it off. | No |
+| `IDRAC_FORCE_CIPHER_STRING` | Pushes a cipher list into the Avocent client's internal config after launch. | No |
+| `IDRAC_FORCE_PROTOCOL_STRING` | Pushes a TLS protocol list into the Avocent client's internal config after launch. | No |
+| `IDRAC_EXTRA_VNC_ARGS` | Extra arguments appended to `vncviewer` in `vnc` mode. | No |
+| `IDRAC_VNC_PORT` | Port used in `vnc` mode. Defaults to `5901`. | No |
+| `IDRAC_VNC_PASSWORD` | Password used in `vnc` mode. Also readable from a Docker secret. | No |
+| `IDRAC_VNC_SECURITY_TYPES` | VNC security types. Defaults to `TLSVnc,VncAuth,TLSNone,None`. | No |
+| `IDRAC_VNC_GNUTLS_PRIORITY` | GnuTLS priority string for `vnc` mode. Defaults to `NORMAL`. | No |
 | `VIRTUAL_MEDIA` | Filename inside `/vmedia` to automount after the console starts. | No |
 | `VIRTUAL_MEDIA_START_DELAY` | Delay in seconds before the virtual media UI automation begins. Defaults to `15`. | No |
+| `VIRTUAL_MEDIA_WINDOW_TIMEOUT` | Seconds to wait for each virtual media window. Defaults to `30`. | No |
+| `VIRTUAL_MEDIA_WINDOW_NAME` | Title of the virtual media window to drive. Defaults to `Virtual Media`. | No |
+| `VIRTUAL_MEDIA_MENU_X` / `_MENU_Y` / `_LAUNCH_X` / `_LAUNCH_Y` / `_PATH_X` / `_PATH_Y` / `_MAP_X` / `_MAP_Y` | Click coordinates for the virtual media automation. Adjust if your console lays its menus out differently. | No |
 
-Docker secrets are also supported through `/run/secrets/idrac_host`, `/run/secrets/idrac_port`, `/run/secrets/idrac_user`, and `/run/secrets/idrac_password`.
+Docker secrets are also supported through `/run/secrets/idrac_host`, `/run/secrets/idrac_port`, `/run/secrets/idrac_user`, `/run/secrets/idrac_password`, and `/run/secrets/idrac_vnc_password`.
+
+The `secret` compose profile reads those from `./secrets/*.txt`. That directory is gitignored - keep it that way, it holds your iDRAC password in plain text.
 
 For advanced desktop/container tuning options, see the [`docker-baseimage-gui` environment variable reference](https://github.com/jlesage/docker-baseimage-gui#environment-variables).
 
@@ -135,7 +151,7 @@ For advanced desktop/container tuning options, see the [`docker-baseimage-gui` e
 
 | Path | Description | Required |
 | --- | --- | --- |
-| `/app` | Cached JAR downloads and extracted native libraries. | No |
+| `/app` | Cached JAR downloads (`avctKVM.jar`, plus `avctKVM.patched.jar` when the cert shim is on) and extracted native libraries. | No |
 | `/vmedia` | Optional ISO repository for automounting virtual media. | No |
 | `/screenshots` | Screenshot directory exposed by the base GUI image. | No |
 

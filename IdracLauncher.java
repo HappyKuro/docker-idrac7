@@ -46,9 +46,20 @@ public final class IdracLauncher {
                     Class<?> configClass = Class.forName("com.avocent.e.k");
                     Method putMethod = configClass.getMethod("a", String.class, Object.class);
                     putMethod.invoke(null, configKey, value);
-                    Thread.sleep(250L);
                 } catch (Throwable t) {
                     // Keep retrying while the app initializes.
+                }
+
+                // The pause has to happen on every pass, not just the successful
+                // one. With Thread.sleep inside the try, every failed lookup
+                // retried immediately, so until the Avocent config class showed
+                // up this loop spun a core flat out for the full 15 seconds --
+                // exactly while the console is doing its TLS handshake.
+                try {
+                    Thread.sleep(250L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
                 }
             }
         }, "idrac-config-pusher");

@@ -5,3 +5,11 @@
 !/data/screenshots/.gitkeep
 /data/vmedia/*
 !/data/vmedia/.gitkeep
+
+# Docker secrets consumed by the "secret" compose profile. These hold the
+# iDRAC host, username and password in plain text and must never be committed.
+/secrets/
+
+# Per-profile bind mounts used by the "secret" compose service
+/data/app-secret/
+/data/screenshots-secret/
